@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Feedback — Student Feedback System</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <div>
+      <div class="kicker">Kyungdong University · Smart Computing</div>
+      <h1>Open for feedback</h1>
+    </div>
+    <div class="who">
+      <div id="who-name"></div>
+      <button class="link" onclick="logout()">Log out</button>
+    </div>
+  </div>
+
+  <div id="list" class="ledger"></div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  const user = Auth.requireRole('student');
+
+  function logout() { Auth.clear(); window.location.href = '/index.html'; }
+
+  if (user) {
+    document.getElementById('who-name').textContent = `${user.name} · student`;
+    load();
+  }
+
+  async function load() {
+    const listEl = document.getElementById('list');
+    try {
+      const { forms } = await api('/forms');
+      if (forms.length === 0) {
+        listEl.innerHTML = '<div class="empty">No feedback forms are open right now. Check back later.</div>';
+        return;
+      }
+      listEl.innerHTML = forms.map((f, i) => `
+        <div class="ledger-entry">
+          <div class="num">${String(i + 1).padStart(2, '0')}</div>
+          <div class="body">
+            <div class="title">${escapeHtml(f.title)}</div>
+            ${f.description ? `<div class="desc">${escapeHtml(f.description)}</div>` : ''}
+            <div class="meta">${f.questions.length} question${f.questions.length === 1 ? '' : 's'}</div>
+          </div>
+          <div>
+            ${f.submitted
+              ? '<span class="tag done">Submitted</span>'
+              : `<a class="btn" href="/form.html?id=${encodeURIComponent(f.id)}">Give feedback</a>`}
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      listEl.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
+    }
+  }
+</script>
+</body>
+</html>

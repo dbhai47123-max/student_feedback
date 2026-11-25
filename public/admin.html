@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Student Feedback System</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <div>
+      <div class="kicker">Kyungdong University · Smart Computing</div>
+      <h1>Feedback forms</h1>
+    </div>
+    <div class="who">
+      <div id="who-name"></div>
+      <button class="link" onclick="logout()">Log out</button>
+    </div>
+  </div>
+
+  <div id="notice" class="notice" style="display:none;"></div>
+
+  <div class="actions" style="margin-top:0; margin-bottom: 1.5rem;">
+    <button onclick="openBuilder()">+ New form</button>
+  </div>
+
+  <div id="list" class="ledger"></div>
+
+  <!-- Form builder, hidden until "New form" is clicked -->
+  <div id="builder" style="display:none; margin-top: 2rem;">
+    <h2>New feedback form</h2>
+    <form id="builder-form">
+      <div class="field">
+        <label for="b-title">Title</label>
+        <input type="text" id="b-title" required placeholder="e.g. Week 5 Course Feedback">
+      </div>
+      <div class="field">
+        <label for="b-desc">Description (optional)</label>
+        <textarea id="b-desc" placeholder="What is this feedback for?"></textarea>
+      </div>
+
+      <label>Questions</label>
+      <div id="questions"></div>
+      <button type="button" class="secondary" onclick="addQuestion()">+ Add question</button>
+
+      <div class="actions">
+        <button type="submit">Publish form</button>
+        <button type="button" class="secondary" onclick="closeBuilder()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  const user = Auth.requireRole('admin');
+  const notice = document.getElementById('notice');
+  let qCount = 0;
+
+  function logout() { Auth.clear(); window.location.href = '/index.html'; }
+
+  if (user) {
+    document.getElementById('who-name').textContent = `${user.name} · admin`;
+    load();
+  }
+
+  async function load() {
+    const listEl = document.getElementById('list');
+    try {
+      const { forms } = await api('/forms');
+      if (forms.length === 0) {
+        listEl.innerHTML = '<div class="empty">You haven\'t created any forms yet.</div>';
+        return;
+      }
+      listEl.innerHTML = forms.map((f, i) => `
+        <div class="ledger-entry">
+          <div class="num">${String(i + 1).padStart(2, '0')}</div>
+          <div class="body">
+            <div class="title">${escapeHtml(f.title)}</div>
+            ${f.description ? `<div class="desc">${escapeHtml(f.description)}</div>` : ''}
+            <div class="meta">${f.responseCount} response${f.responseCount === 1 ? '' : 's'} · ${f.questions.length} question${f.questions.length === 1 ? '' : 's'}</div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:0.4rem; align-items:flex-end;">
+            <span class="tag ${f.isActive ? 'open' : 'closed'}">${f.isActive ? 'Open' : 'Closed'}</span>
+            <div style="display:flex; gap:0.5rem;">
+              <a class="btn secondary" href="/results.html?id=${encodeURIComponent(f.id)}">Results</a>
+              <button class="secondary" onclick="toggleActive('${f.id}', ${!f.isActive})">${f.isActive ? 'Close' : 'Reopen'}</button>
+              <button class="danger" onclick="removeForm('${f.id}')">Delete</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      showNotice(notice, err.message);
+    }
+  }
+
+  async function toggleActive(id, isActive) {
+    try {
+      await api(`/forms/${id}`, { method: 'PUT', body: { isActive } });
+      load();
+    } catch (err) { showNotice(notice, err.message); }
+  }
+
+  async function removeForm(id) {
+    if (!confirm('Delete this form and all of its responses? This cannot be undone.')) return;
+    try {
+      await api(`/forms/${id}`, { method: 'DELETE' });
+      load();
+    } catch (err) { showNotice(notice, err.message); }
+  }
+
+  // --- Builder ---
+
+  function openBuilder() {
+    document.getElementById('builder').style.display = 'block';
+    document.getElementById('questions').innerHTML = '';
+    qCount = 0;
+    addQuestion();
+    document.getElementById('builder').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function closeBuilder() {
+    document.getElementById('builder').style.display = 'none';
+    document.getElementById('builder-form').reset();
+  }
+
+  function addQuestion() {
+    qCount += 1;
+    const id = `q${qCount}`;
+    const el = document.createElement('div');
+    el.className = 'question-block';
+    el.dataset.qid = id;
+    el.innerHTML = `
+      <button type="button" class="link remove-q" onclick="this.closest('.question-block').remove()">Remove</button>
+      <div class="field">
+        <label>Question text</label>
+        <input type="text" class="q-label" required placeholder="e.g. How clear were the lectures?">
+      </div>
+      <div class="q-row">
+        <div class="field">
+          <label>Answer type</label>
+          <select class="q-type" onchange="toggleOptions(this)">
+            <option value="rating">Rating (1–5)</option>
+            <option value="choice">Multiple choice</option>
+            <option value="text">Short answer</option>
+          </select>
+        </div>
+        <div class="field q-options-field" style="display:none;">
+          <label>Options (comma-separated)</label>
+          <input type="text" class="q-options" placeholder="e.g. Yes, No, Not sure">
+        </div>
+      </div>
+    `;
+    document.getElementById('questions').appendChild(el);
+  }
+
+  function toggleOptions(select) {
+    const field = select.closest('.q-row').querySelector('.q-options-field');
+    field.style.display = select.value === 'choice' ? 'block' : 'none';
+  }
+
+  document.getElementById('builder-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const title = document.getElementById('b-title').value.trim();
+    const description = document.getElementById('b-desc').value.trim();
+
+    const blocks = [...document.querySelectorAll('.question-block')];
+    if (blocks.length === 0) {
+      showNotice(notice, 'Add at least one question.');
+      return;
+    }
+
+    const questions = [];
+    for (const block of blocks) {
+      const label = block.querySelector('.q-label').value.trim();
+      const type = block.querySelector('.q-type').value;
+      if (!label) { showNotice(notice, 'Every question needs text.'); return; }
+      const q = { label, type };
+      if (type === 'choice') {
+        const options = block.querySelector('.q-options').value.split(',').map(s => s.trim()).filter(Boolean);
+        if (options.length < 2) { showNotice(notice, 'Multiple choice questions need at least two options.'); return; }
+        q.options = options;
+      }
+      questions.push(q);
+    }
+
+    try {
+      await api('/forms', { method: 'POST', body: { title, description, questions } });
+      closeBuilder();
+      notice.style.display = 'none';
+      load();
+    } catch (err) {
+      showNotice(notice, err.message);
+    }
+  });
+</script>
+</body>
+</html>

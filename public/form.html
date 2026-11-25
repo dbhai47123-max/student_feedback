@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Give Feedback — Student Feedback System</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <div>
+      <div class="kicker"><a href="/student.html" style="color: inherit; text-decoration: none;">&larr; Back to open forms</a></div>
+      <h1 id="form-title">Loading&hellip;</h1>
+    </div>
+  </div>
+
+  <p id="form-desc" class="desc" style="color: var(--slate);"></p>
+  <div id="notice" class="notice" style="display:none;"></div>
+
+  <form id="feedback-form"></form>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  const user = Auth.requireRole('student');
+  const params = new URLSearchParams(window.location.search);
+  const formId = params.get('id');
+  const notice = document.getElementById('notice');
+  let currentForm = null;
+
+  if (user && formId) load();
+  if (!formId) showNotice(notice, 'No form was specified.');
+
+  async function load() {
+    try {
+      const { form } = await api(`/forms/${encodeURIComponent(formId)}`);
+      currentForm = form;
+      document.getElementById('form-title').textContent = form.title;
+      document.getElementById('form-desc').textContent = form.description || '';
+      renderQuestions(form.questions);
+    } catch (err) {
+      showNotice(notice, err.message);
+      document.getElementById('form-title').textContent = 'Unavailable';
+    }
+  }
+
+  function renderQuestions(questions) {
+    const container = document.getElementById('feedback-form');
+    container.innerHTML = questions.map(q => {
+      if (q.type === 'rating') {
+        return `
+          <div class="field">
+            <label>${escapeHtml(q.label)}</label>
+            <div class="rating-row" data-qid="${q.id}">
+              ${[1,2,3,4,5].map(n => `<button type="button" class="rating-dot" data-value="${n}" onclick="selectRating('${q.id}', ${n})">${n}</button>`).join('')}
+            </div>
+            <input type="hidden" name="${q.id}" data-type="rating">
+          </div>`;
+      }
+      if (q.type === 'choice') {
+        return `
+          <div class="field">
+            <label>${escapeHtml(q.label)}</label>
+            <select name="${q.id}" data-type="choice">
+              <option value="" disabled selected>Choose one&hellip;</option>
+              ${q.options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('')}
+            </select>
+          </div>`;
+      }
+      return `
+        <div class="field">
+          <label>${escapeHtml(q.label)}</label>
+          <textarea name="${q.id}" data-type="text" placeholder="Type your answer&hellip;"></textarea>
+        </div>`;
+    }).join('') + `
+      <div class="actions">
+        <button type="submit">Submit feedback</button>
+        <a class="btn secondary" href="/student.html">Cancel</a>
+      </div>`;
+
+    container.addEventListener('submit', onSubmit);
+  }
+
+  function selectRating(qid, value) {
+    const row = document.querySelector(`.rating-row[data-qid="${qid}"]`);
+    row.querySelectorAll('.rating-dot').forEach(btn => {
+      btn.classList.toggle('selected', Number(btn.dataset.value) === value);
+    });
+    row.nextElementSibling.value = value;
+  }
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    const answers = {};
+    currentForm.questions.forEach(q => {
+      const el = document.querySelector(`[name="${q.id}"]`);
+      answers[q.id] = q.type === 'rating' ? (el.value ? Number(el.value) : '') : el.value;
+    });
+
+    try {
+      await api(`/forms/${encodeURIComponent(formId)}/responses`, { method: 'POST', body: { answers } });
+      window.location.href = '/student.html';
+    } catch (err) {
+      showNotice(notice, err.message);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+</script>
+</body>
+</html>
