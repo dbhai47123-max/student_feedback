@@ -3,110 +3,172 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Student Feedback System</title>
+<meta name="color-scheme" content="light dark">
+<title>Log in · KDU Feedback</title>
+<meta name="description" content="Kyungdong University student feedback system: share anonymous feedback on courses, facilities and events.">
+<script src="/js/theme.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-<div class="wrap" style="max-width: 480px;">
-  <div class="masthead" style="border-bottom: none; margin-bottom: 0.5rem;">
-    <div>
-      <div class="kicker">Kyungdong University · Smart Computing</div>
-      <h1>Student Feedback</h1>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div class="auth">
+  <aside class="auth-aside" aria-label="About KDU Feedback">
+    <a class="brand" href="/index.html">
+      <span class="brand__logo" data-icon="logo"></span>
+      <span class="brand__text"><strong>KDU Feedback</strong><small>Kyungdong University · Smart Computing</small></span>
+    </a>
+
+    <div class="auth-aside__content">
+      <p class="eyebrow">Student feedback system</p>
+      <h1>Your feedback shapes every course.</h1>
+      <p class="auth-aside__lead">Share honest feedback on courses, facilities and events in a couple of minutes. Instructors use it to make things better.</p>
+      <ul class="feature-list">
+        <li>
+          <span class="feature-icon" data-icon="shield"></span>
+          <div><strong>Anonymous by design</strong><span>Admins only ever see combined results, never your name.</span></div>
+        </li>
+        <li>
+          <span class="feature-icon" data-icon="clock"></span>
+          <div><strong>Quick to complete</strong><span>Ratings, multiple choice and short written answers.</span></div>
+        </li>
+        <li>
+          <span class="feature-icon" data-icon="chart"></span>
+          <div><strong>Real impact</strong><span>Results go straight to the people who run your courses.</span></div>
+        </li>
+      </ul>
     </div>
-  </div>
 
-  <div class="card">
-    <div class="tabs">
-      <button id="tab-login" class="active" onclick="setTab('login')">Log in</button>
-      <button id="tab-register" onclick="setTab('register')">Register</button>
+    <p class="auth-aside__foot">Kyungdong University · Student Feedback System</p>
+  </aside>
+
+  <main id="main" class="auth-main">
+    <div class="auth-main__top" id="theme-slot"></div>
+
+    <div class="auth-card">
+      <a class="brand auth-card__brand" href="/index.html">
+        <span class="brand__logo" data-icon="logo"></span>
+        <span class="brand__text"><strong>KDU Feedback</strong><small>Kyungdong University</small></span>
+      </a>
+
+      <div class="auth-card__head">
+        <h2 id="auth-title" tabindex="-1">Welcome back</h2>
+        <p id="auth-subtitle">Log in to see the feedback forms waiting for you.</p>
+      </div>
+
+      <div class="segmented segmented--block" role="tablist" aria-label="Choose how to continue">
+        <button type="button" role="tab" id="tab-login" aria-controls="login-form" aria-selected="true">Log in</button>
+        <button type="button" role="tab" id="tab-register" aria-controls="register-form" aria-selected="false" tabindex="-1">Create account</button>
+      </div>
+
+      <div id="alert" class="alert" role="alert" hidden></div>
+
+      <!-- Log in -->
+      <form id="login-form" class="auth-form" role="tabpanel" aria-labelledby="tab-login" novalidate>
+        <div class="field">
+          <label class="label" for="login-email">Email</label>
+          <div class="input-wrap">
+            <span data-icon="mail"></span>
+            <input class="input" type="email" id="login-email" name="email" autocomplete="username" inputmode="email"
+                   autocapitalize="none" spellcheck="false" placeholder="you@example.com"
+                   maxlength="254" aria-describedby="login-email-error" required>
+          </div>
+          <p class="field-error" id="login-email-error"></p>
+        </div>
+
+        <div class="field">
+          <label class="label" for="login-password">Password</label>
+          <div class="input-wrap">
+            <span data-icon="lock"></span>
+            <input class="input has-action" type="password" id="login-password" name="password" autocomplete="current-password"
+                   placeholder="Enter your password" maxlength="1024"
+                   aria-describedby="login-password-error login-password-caps" required>
+            <button type="button" class="input-action" data-toggle-password="login-password" aria-label="Show password" aria-pressed="false"></button>
+          </div>
+          <p class="field-note" id="login-password-caps" hidden></p>
+          <p class="field-error" id="login-password-error"></p>
+        </div>
+
+        <div class="auth-row">
+          <label class="checkbox"><input type="checkbox" id="login-remember"> Keep me signed in for 7 days</label>
+        </div>
+
+        <button type="submit" class="btn btn--block btn--lg">Log in</button>
+
+        <p class="auth-switch">New here? <button type="button" class="link-btn" data-switch="register">Create a student account</button></p>
+        <p class="auth-footnote"><span data-icon="info"></span><span>Forgot your password or need an admin account? Contact your course administrator.</span></p>
+      </form>
+
+      <!-- Create account -->
+      <form id="register-form" class="auth-form" role="tabpanel" aria-labelledby="tab-register" novalidate hidden>
+        <div class="field">
+          <label class="label" for="reg-name">Full name</label>
+          <div class="input-wrap">
+            <span data-icon="user"></span>
+            <input class="input" type="text" id="reg-name" name="name" autocomplete="name" placeholder="e.g. Kim Min-jun"
+                   maxlength="60" aria-describedby="reg-name-error" required>
+          </div>
+          <p class="field-error" id="reg-name-error"></p>
+        </div>
+
+        <div class="field">
+          <label class="label" for="reg-email">Email</label>
+          <div class="input-wrap">
+            <span data-icon="mail"></span>
+            <input class="input" type="email" id="reg-email" name="email" autocomplete="email" inputmode="email"
+                   autocapitalize="none" spellcheck="false" placeholder="you@example.com"
+                   maxlength="254" aria-describedby="reg-email-error reg-email-suggest" required>
+          </div>
+          <p class="field-note" id="reg-email-suggest" hidden></p>
+          <p class="field-error" id="reg-email-error"></p>
+        </div>
+
+        <div class="field">
+          <label class="label" for="reg-password">Password</label>
+          <div class="input-wrap">
+            <span data-icon="lock"></span>
+            <input class="input has-action" type="password" id="reg-password" name="password" autocomplete="new-password"
+                   placeholder="Create a strong password" maxlength="72"
+                   aria-describedby="reg-password-error reg-password-rules reg-password-caps" required>
+            <button type="button" class="input-action" data-toggle-password="reg-password" aria-label="Show password" aria-pressed="false"></button>
+          </div>
+          <p class="field-note" id="reg-password-caps" hidden></p>
+          <p class="field-error" id="reg-password-error"></p>
+          <div class="strength" id="reg-strength" data-score="0" aria-live="polite">
+            <div class="strength__bar" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+            <div class="strength__label"><span>Password strength</span><strong id="reg-strength-label">Not set</strong></div>
+          </div>
+          <ul class="rules" id="reg-password-rules" aria-label="Password requirements"></ul>
+        </div>
+
+        <div class="field">
+          <label class="label" for="reg-confirm">Confirm password</label>
+          <div class="input-wrap">
+            <span data-icon="lock"></span>
+            <input class="input has-action" type="password" id="reg-confirm" name="confirmPassword" autocomplete="new-password"
+                   placeholder="Re-enter your password" maxlength="72"
+                   aria-describedby="reg-confirm-error reg-confirm-ok" required>
+            <button type="button" class="input-action" data-toggle-password="reg-confirm" aria-label="Show password" aria-pressed="false"></button>
+          </div>
+          <p class="field-note field-note--ok" id="reg-confirm-ok" hidden></p>
+          <p class="field-error" id="reg-confirm-error"></p>
+        </div>
+
+        <button type="submit" class="btn btn--block btn--lg">Create account</button>
+
+        <p class="auth-switch">Already have an account? <button type="button" class="link-btn" data-switch="login">Log in</button></p>
+        <p class="auth-footnote"><span data-icon="shield"></span><span>New accounts are student accounts. Your feedback is always anonymous to admins.</span></p>
+      </form>
     </div>
-
-    <div id="notice" class="notice" style="display:none;"></div>
-
-    <form id="login-form">
-      <div class="field">
-        <label for="login-email">Email</label>
-        <input type="email" id="login-email" required autocomplete="email">
-      </div>
-      <div class="field">
-        <label for="login-password">Password</label>
-        <input type="password" id="login-password" required autocomplete="current-password">
-      </div>
-      <button type="submit" style="width:100%;">Log in</button>
-    </form>
-
-    <form id="register-form" style="display:none;">
-      <div class="field">
-        <label for="reg-name">Full name</label>
-        <input type="text" id="reg-name" required autocomplete="name">
-      </div>
-      <div class="field">
-        <label for="reg-email">Email</label>
-        <input type="email" id="reg-email" required autocomplete="email">
-      </div>
-      <div class="field">
-        <label for="reg-password">Password</label>
-        <input type="password" id="reg-password" required minlength="6" autocomplete="new-password">
-        <div class="hint">At least 6 characters. New accounts are registered as students.</div>
-      </div>
-      <button type="submit" style="width:100%;">Create account</button>
-    </form>
-  </div>
-
-  <footer class="note" style="text-align:center;">
-    Admins: use the account provided by your course instructor.
-  </footer>
+  </main>
 </div>
 
+<script src="/shared/validation.js"></script>
 <script src="/js/api.js"></script>
-<script>
-  const notice = document.getElementById('notice');
-
-  function setTab(tab) {
-    const isLogin = tab === 'login';
-    document.getElementById('login-form').style.display = isLogin ? 'block' : 'none';
-    document.getElementById('register-form').style.display = isLogin ? 'none' : 'block';
-    document.getElementById('tab-login').classList.toggle('active', isLogin);
-    document.getElementById('tab-register').classList.toggle('active', !isLogin);
-    notice.style.display = 'none';
-  }
-
-  function goToDashboard(user) {
-    window.location.href = user.role === 'admin' ? '/admin.html' : '/student.html';
-  }
-
-  // If already logged in, skip straight to the right dashboard.
-  (function () {
-    const user = Auth.getUser();
-    if (user && Auth.getToken()) goToDashboard(user);
-  })();
-
-  document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    try {
-      const email = document.getElementById('login-email').value.trim();
-      const password = document.getElementById('login-password').value;
-      const { token, user } = await api('/auth/login', { method: 'POST', body: { email, password } });
-      Auth.setSession(token, user);
-      goToDashboard(user);
-    } catch (err) {
-      showNotice(notice, err.message);
-    }
-  });
-
-  document.getElementById('register-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    try {
-      const name = document.getElementById('reg-name').value.trim();
-      const email = document.getElementById('reg-email').value.trim();
-      const password = document.getElementById('reg-password').value;
-      const { token, user } = await api('/auth/register', { method: 'POST', body: { name, email, password } });
-      Auth.setSession(token, user);
-      goToDashboard(user);
-    } catch (err) {
-      showNotice(notice, err.message);
-    }
-  });
-</script>
+<script src="/js/ui.js"></script>
+<script src="/js/pages/auth.js"></script>
 </body>
 </html>

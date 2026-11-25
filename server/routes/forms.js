@@ -1,101 +1,91 @@
 const express = require('express');
 const { nanoid } = require('nanoid');
 const { withData, load } = require('../db/db');
+const Validation = require('../../shared/validation');
+const asyncHandler = require('../asyncHandler');
 const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-const ALLOWED_QUESTION_TYPES = ['rating', 'text', 'choice'];
+function validationFailed(res, errors) {
+  return res.status(400).json({ error: Validation.firstError(errors), fields: errors });
+}
 
-function validateQuestions(questions) {
-  if (!Array.isArray(questions) || questions.length === 0) {
-    return 'At least one question is required.';
-  }
-  for (const q of questions) {
-    if (!q.label || typeof q.label !== 'string') {
-      return 'Every question needs a label.';
-    }
-    if (!ALLOWED_QUESTION_TYPES.includes(q.type)) {
-      return `Question type must be one of: ${ALLOWED_QUESTION_TYPES.join(', ')}.`;
-    }
-    if (q.type === 'choice' && (!Array.isArray(q.options) || q.options.length < 2)) {
-      return 'Choice questions need at least two options.';
-    }
-  }
-  return null;
+function buildQuestions(questions) {
+  return questions.map(q => ({
+    id: q.id || nanoid(),
+    type: q.type,
+    label: q.label,
+    options: q.type === 'choice' ? q.options : undefined
+  }));
+}
+
+function studentView(form, data, studentId) {
+  return {
+    id: form.id,
+    title: form.title,
+    description: form.description,
+    questions: form.questions,
+    isActive: form.isActive,
+    createdAt: form.createdAt,
+    submitted: data.responses.some(r => r.formId === form.id && r.studentId === studentId)
+  };
 }
 
 // List forms.
 // - Admins see every form they created, with response counts.
-// - Students see only active forms, flagged with whether they've
-//   already submitted a response.
+// - Students see only open forms, flagged with whether they've already answered.
 router.get('/', requireAuth, (req, res) => {
   const data = load();
 
   if (req.user.role === 'admin') {
     const forms = data.forms
       .filter(f => f.createdBy === req.user.id)
-      .map(f => ({
-        ...f,
-        responseCount: data.responses.filter(r => r.formId === f.id).length
-      }));
-    return res.json({ forms });
+      .map(f => {
+        const responses = data.responses.filter(r => r.formId === f.id);
+        const lastResponseAt = responses.reduce(
+          (latest, r) => (!latest || r.submittedAt > latest ? r.submittedAt : latest),
+          null
+        );
+        return { ...f, responseCount: responses.length, lastResponseAt };
+      });
+    const studentCount = data.users.filter(u => u.role === 'student').length;
+    return res.json({ forms, studentCount });
   }
 
   const forms = data.forms
     .filter(f => f.isActive)
-    .map(f => {
-      const submitted = data.responses.some(
-        r => r.formId === f.id && r.studentId === req.user.id
-      );
-      return {
-        id: f.id,
-        title: f.title,
-        description: f.description,
-        questions: f.questions,
-        createdAt: f.createdAt,
-        submitted
-      };
-    });
+    .map(f => studentView(f, data, req.user.id));
   res.json({ forms });
 });
 
 router.get('/:id', requireAuth, (req, res) => {
   const data = load();
   const form = data.forms.find(f => f.id === req.params.id);
-  if (!form) return res.status(404).json({ error: 'Form not found.' });
+  if (!form) return res.status(404).json({ error: 'This form could not be found. It may have been deleted.' });
 
-  if (req.user.role === 'student' && !form.isActive) {
-    return res.status(403).json({ error: 'This form is no longer accepting responses.' });
+  if (req.user.role === 'student') {
+    if (!form.isActive) {
+      return res.status(403).json({ error: 'This form is closed and no longer accepting responses.' });
+    }
+    return res.json({ form: studentView(form, data, req.user.id) });
   }
-  if (req.user.role === 'admin' && form.createdBy !== req.user.id) {
+
+  if (form.createdBy !== req.user.id) {
     return res.status(403).json({ error: 'You can only view forms you created.' });
   }
-
   res.json({ form });
 });
 
-router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
-  const { title, description, questions } = req.body || {};
-
-  if (!title || typeof title !== 'string') {
-    return res.status(400).json({ error: 'A form title is required.' });
-  }
-  const validationError = validateQuestions(questions);
-  if (validationError) {
-    return res.status(400).json({ error: validationError });
-  }
+router.post('/', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const { ok, values, errors } = Validation.validateFormDefinition(req.body);
+  if (!ok) return validationFailed(res, errors);
 
   const form = {
     id: nanoid(),
-    title,
-    description: description || '',
-    questions: questions.map(q => ({
-      id: nanoid(),
-      type: q.type,
-      label: q.label,
-      options: q.type === 'choice' ? q.options : undefined
-    })),
+    title: values.title,
+    description: values.description,
+    questions: buildQuestions(values.questions.map(({ id, ...q }) => q)), // always fresh ids
     isActive: true,
     createdBy: req.user.id,
     createdAt: new Date().toISOString()
@@ -103,46 +93,59 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
 
   await withData(d => { d.forms.push(form); });
   res.status(201).json({ form });
-});
+}));
 
-router.put('/:id', requireAuth, requireRole('admin'), async (req, res) => {
-  const { title, description, isActive, questions } = req.body || {};
-
+router.put('/:id', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const body = req.body || {};
   const data = load();
   const form = data.forms.find(f => f.id === req.params.id);
-  if (!form) return res.status(404).json({ error: 'Form not found.' });
+  if (!form) return res.status(404).json({ error: 'This form could not be found. It may have been deleted.' });
   if (form.createdBy !== req.user.id) {
     return res.status(403).json({ error: 'You can only edit forms you created.' });
   }
 
-  if (questions !== undefined) {
-    const validationError = validateQuestions(questions);
-    if (validationError) return res.status(400).json({ error: validationError });
+  if (body.isActive !== undefined && typeof body.isActive !== 'boolean') {
+    return validationFailed(res, { isActive: 'isActive must be true or false.' });
   }
 
-  await withData(d => {
-    const f = d.forms.find(x => x.id === req.params.id);
-    if (title !== undefined) f.title = title;
-    if (description !== undefined) f.description = description;
-    if (isActive !== undefined) f.isActive = !!isActive;
-    if (questions !== undefined) {
-      f.questions = questions.map(q => ({
-        id: q.id || nanoid(),
-        type: q.type,
-        label: q.label,
-        options: q.type === 'choice' ? q.options : undefined
-      }));
+  const changesContent = ['title', 'description', 'questions'].some(k => body[k] !== undefined);
+  let values = null;
+  if (changesContent) {
+    if (body.questions !== undefined && data.responses.some(r => r.formId === form.id)) {
+      return res.status(409).json({
+        error: "Questions can't be changed after students have responded. Create a new form instead."
+      });
     }
+    const merged = {
+      title: body.title !== undefined ? body.title : form.title,
+      description: body.description !== undefined ? body.description : form.description,
+      questions: body.questions !== undefined ? body.questions : form.questions
+    };
+    const check = Validation.validateFormDefinition(merged);
+    if (!check.ok) return validationFailed(res, check.errors);
+    values = check.values;
+  }
+
+  const updated = await withData(d => {
+    const f = d.forms.find(x => x.id === req.params.id);
+    if (!f) return null;
+    if (body.isActive !== undefined) f.isActive = body.isActive;
+    if (values) {
+      f.title = values.title;
+      f.description = values.description;
+      if (body.questions !== undefined) f.questions = buildQuestions(values.questions);
+    }
+    f.updatedAt = new Date().toISOString();
+    return f;
   });
+  if (!updated) return res.status(404).json({ error: 'This form could not be found. It may have been deleted.' });
 
-  const updated = load().forms.find(f => f.id === req.params.id);
   res.json({ form: updated });
-});
+}));
 
-router.delete('/:id', requireAuth, requireRole('admin'), async (req, res) => {
-  const data = load();
-  const form = data.forms.find(f => f.id === req.params.id);
-  if (!form) return res.status(404).json({ error: 'Form not found.' });
+router.delete('/:id', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const form = load().forms.find(f => f.id === req.params.id);
+  if (!form) return res.status(404).json({ error: 'This form could not be found. It may have been deleted.' });
   if (form.createdBy !== req.user.id) {
     return res.status(403).json({ error: 'You can only delete forms you created.' });
   }
@@ -153,6 +156,6 @@ router.delete('/:id', requireAuth, requireRole('admin'), async (req, res) => {
   });
 
   res.json({ ok: true });
-});
+}));
 
 module.exports = router;

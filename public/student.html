@@ -3,63 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Your Feedback — Student Feedback System</title>
+<meta name="color-scheme" content="light dark">
+<title>My feedback · KDU Feedback</title>
+<script src="/js/theme.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-<div class="wrap">
-  <div class="masthead">
-    <div>
-      <div class="kicker">Kyungdong University · Smart Computing</div>
-      <h1>Open for feedback</h1>
-    </div>
-    <div class="who">
-      <div id="who-name"></div>
-      <button class="link" onclick="logout()">Log out</button>
+<a class="skip-link" href="#main">Skip to content</a>
+<div id="app-header"></div>
+
+<main id="main" class="container page">
+  <div class="page-head">
+    <div class="page-head__text">
+      <p class="eyebrow">Student dashboard</p>
+      <h1 id="greeting">Welcome</h1>
+      <p>Here are the feedback forms open right now. Your answers are anonymous: admins only see combined results.</p>
     </div>
   </div>
 
-  <div id="list" class="ledger"></div>
-</div>
+  <section class="stats" id="stats" aria-label="Your progress" hidden></section>
+
+  <div class="toolbar" id="toolbar" hidden>
+    <div class="toolbar__left">
+      <div class="search">
+        <span data-icon="search"></span>
+        <label class="sr-only" for="search">Search forms</label>
+        <input class="input" type="search" id="search" placeholder="Search forms…" autocomplete="off">
+      </div>
+    </div>
+    <div class="segmented" role="group" aria-label="Filter forms" id="filters">
+      <button type="button" data-filter="todo" aria-pressed="true">To do <span class="count" data-count="todo">0</span></button>
+      <button type="button" data-filter="done" aria-pressed="false">Completed <span class="count" data-count="done">0</span></button>
+      <button type="button" data-filter="all" aria-pressed="false">All <span class="count" data-count="all">0</span></button>
+    </div>
+  </div>
+
+  <section id="list" aria-live="polite" aria-busy="true">
+    <div class="card-grid">
+      <div class="skeleton" style="height:210px"></div>
+      <div class="skeleton" style="height:210px"></div>
+      <div class="skeleton" style="height:210px"></div>
+    </div>
+  </section>
+</main>
 
 <script src="/js/api.js"></script>
-<script>
-  const user = Auth.requireRole('student');
-
-  function logout() { Auth.clear(); window.location.href = '/index.html'; }
-
-  if (user) {
-    document.getElementById('who-name').textContent = `${user.name} · student`;
-    load();
-  }
-
-  async function load() {
-    const listEl = document.getElementById('list');
-    try {
-      const { forms } = await api('/forms');
-      if (forms.length === 0) {
-        listEl.innerHTML = '<div class="empty">No feedback forms are open right now. Check back later.</div>';
-        return;
-      }
-      listEl.innerHTML = forms.map((f, i) => `
-        <div class="ledger-entry">
-          <div class="num">${String(i + 1).padStart(2, '0')}</div>
-          <div class="body">
-            <div class="title">${escapeHtml(f.title)}</div>
-            ${f.description ? `<div class="desc">${escapeHtml(f.description)}</div>` : ''}
-            <div class="meta">${f.questions.length} question${f.questions.length === 1 ? '' : 's'}</div>
-          </div>
-          <div>
-            ${f.submitted
-              ? '<span class="tag done">Submitted</span>'
-              : `<a class="btn" href="/form.html?id=${encodeURIComponent(f.id)}">Give feedback</a>`}
-          </div>
-        </div>
-      `).join('');
-    } catch (err) {
-      listEl.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
-    }
-  }
-</script>
+<script src="/js/ui.js"></script>
+<script src="/js/pages/student.js"></script>
 </body>
 </html>
